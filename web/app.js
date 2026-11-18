@@ -27,6 +27,10 @@ async function loadConfig() {
   $('t-margin').value = CFG.rice.chalk_margin;
   $('t-red').value = Math.round(CFG.rice.red_frac * 100);
   $('t-ref').value = CFG.rice.ref_length_mm;
+  $('clf').value = CFG.rice.classifier;
+  $('clfNote').textContent = CFG.model_available
+    ? 'The AI model decides condition. Length (broken), foreign matter and red stay with the FCI rules. Needs ≥ 10 px/mm.'
+    : 'Model file models/rice_condition_v1.onnx not found: rules are used.';
   $('t-lump').value = CFG.sugar.lump_factor; $('t-speck').value = CFG.sugar.speck_L;
   fillPresets(); syncOut();
   if (CFG.source.kind === 'sim') $('preset').value = CFG.source.preset;
@@ -57,7 +61,7 @@ function pushSettings(extra = {}) {
       sample_g: +$('sampleG').value || 0, auto_capture: $('auto').checked,
       broken_frac: $('t-broken').value / 100, chalky_frac: $('t-chalky').value / 100,
       chalk_margin: +$('t-margin').value, red_frac: $('t-red').value / 100, ref_length_mm: +$('t-ref').value,
-      lump_factor: +$('t-lump').value, speck_L: +$('t-speck').value, ...extra };
+      lump_factor: +$('t-lump').value, speck_L: +$('t-speck').value, classifier: $('clf').value, ...extra };
     try { CFG = await api('/api/settings', d); } catch (e) { showErr(e.message); }
   }, 150);
 }
@@ -70,7 +74,7 @@ document.querySelectorAll('#commodity button').forEach(b => b.addEventListener('
   if (CFG.source.kind === 'sim') $('preset').value = CFG.source.preset;
 }));
 $('useStill').addEventListener('change', () => pushSettings({use_still: $('useStill').checked}));
-['lot', 'officer', 'sampleG', 'grade', 'auto'].forEach(id => $(id).addEventListener('change', () => pushSettings()));
+['lot', 'officer', 'sampleG', 'grade', 'auto', 'clf'].forEach(id => $(id).addEventListener('change', () => pushSettings()));
 ['t-broken', 't-chalky', 't-margin', 't-red', 't-ref', 't-lump', 't-speck'].forEach(id => $(id).addEventListener('input', () => { syncOut(); pushSettings(); }));
 
 function showSrc() {
@@ -181,8 +185,19 @@ function onResult(r) {
   }
   const share = s.sample_g ? ` = ${fmt(100 * s.imaged_g / s.sample_g, 0)}% of the ${fmt(s.sample_g, 1)} g sample` : '';
   $('foot').innerHTML = `Weight basis: each grain's mass estimated from its measured volume × density; ≈ <b>${fmt(s.imaged_g, 2)} g imaged</b>${share}. Add shots until the whole sample is covered.
-    ${s.n_review ? `<b>${s.n_review}</b> borderline grain(s) flagged for officer review (yellow box).` : ''}<br>Not assessed by camera: ${esc((s.not_assessed || []).join(' · '))}`;
+    ${s.n_review ? `<b>${s.n_review}</b> borderline grain(s) flagged for officer review (yellow box).` : ''}
+    ${clfLine()}<br>Not assessed by camera: ${esc((s.not_assessed || []).join(' · '))}`;
   renderShots();
+}
+
+function clfLine() {
+  const c = (RES?.shots || []).map(s => s.classifier).filter(Boolean);
+  if (!c.length) return '';
+  const nm = c.filter(x => x.used === 'model').length;
+  const last = c[c.length - 1];
+  return nm
+    ? `<br>Condition judged by <b>AI model</b> (${esc(last.name || '')}) on ${nm} of ${c.length} shot(s); length, foreign matter and red by FCI rules.`
+    : `<br>Condition judged by <b>rules</b>: ${esc(last.note || '')}.`;
 }
 
 function renderShots() {
@@ -226,6 +241,9 @@ function inspect(k) {
     ${k.also?.length ? `<p class="small muted">Also shows: ${k.also.map(a => esc(CLASSES[a]?.label || a)).join(', ')} (counted once, by FCI picking order)</p>` : ''}
     <div class="small"><b>Why</b><ul>${k.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
     ${k.review?.length ? `<p class="pill p-warn">Officer review: ${esc(k.review.join('; '))}</p>` : ''}
+    ${k.model ? `<div class="small"><b>AI model</b> (condition)<div class="bars">${Object.entries(k.model).map(([n, p]) =>
+      `<span class="mono">${esc(n)}</span><span class="bar"><i style="width:${(p * 100).toFixed(0)}%"></i></span><span class="mono">${(p * 100).toFixed(0)}%</span>`).join('')}</div>
+      ${k.rules_cls && k.rules_cls !== k.cls ? `<p class="muted">Rules alone would say: ${esc(CLASSES[k.rules_cls]?.label || k.rules_cls)}</p>` : ''}</div>` : ''}
     <dl>${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>`;
 }
 

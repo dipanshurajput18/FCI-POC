@@ -69,6 +69,7 @@ Open http://localhost:8000. It starts on a **simulated tray**, so no camera is n
 | Calibration | `grain/calibration.py` | ArUco markers → px/mm; marker areas excluded |
 | Segmentation | `grain/segment.py` | Otsu threshold + distance-transform watershed (splits touching grains) |
 | Measurement | `grain/segment.py` | min-area rectangle (length, breadth), Lab colour, opaque / red / dark-spot fractions |
+| Condition model | `grain/condition_model.py` | Trained CNN (ONNX, CPU) judges sound / chalky / damaged / discoloured on each kernel crop (`grain/crop.py`). Used on full-resolution captures from real cameras at ≥ 10 px/mm. Selector in the UI: *Auto / AI model / Rules*. |
 | Rice rules | `grain/rice.py` | broken < ¾ and small broken < ¼ of the whole-kernel length; chalky, red, discoloured, damaged, foreign; FCI picking order (one class per kernel); borderline grains flagged for review |
 | Sugar rules | `grain/sugar.py` | crystal sieve size = minor dimension → virtual sieve → IS 498 L/M/S/SS; whiteness proxy → 31/30/29; dark inclusions → specks |
 | Weight % | `rice.py` / `sugar.py` | volume from size × density (rice 1.45, sucrose 1.587 g/cm³) |
@@ -82,7 +83,18 @@ Open http://localhost:8000. It starts on a **simulated tray**, so no camera is n
 .venv\Scripts\python -m pytest -q
 ```
 
-There are 32 tests: 17 for the pipeline and 15 for the FCI relabelling rules in `tests/test_relabel.py`. On simulated trays the pipeline reaches:
+There are 38 tests:
+- 17 for the pipeline on simulated trays
+- 15 for the FCI relabelling rules in `tests/test_relabel.py`
+- 6 for the model integration in `tests/test_model_integration.py`, covering:
+  - the printed A4 sheet in view
+  - how the classifier is chosen
+  - the model end to end
+  - a tray of real IIT test kernels (skipped when the dataset is not downloaded)
+
+`python -m tests.realtray` builds camera-like trays from real IIT Indore test kernels and compares rules against the AI model.
+
+On simulated trays the pipeline reaches:
 - rice: 99.5–100% per-kernel class accuracy, with length error under 0.15 mm
 - sugar: the correct IS 498 size group, sieve-size error under 0.03 mm, and no false specks on clean samples
 
@@ -106,4 +118,4 @@ The classical pipeline finds each kernel and the FCI length rule decides broken 
 - **Loose dark particles on a black tray are invisible.** Use a light or backlit background for foreign-matter checks.
 - **Thresholds and colour limits are untuned for real cameras.** The thresholds and sugar colour limits are placeholders until calibrated on real samples. Use the *Thresholds* panel to tune them.
 - **Not assessed by camera:** moisture, de-husked grains (staining), chemical sugar tests.
-- **Next:** trained models (M5) replace the rule classifier behind the same interface.
+- **The AI model needs a black background, a single layer of grains, the camera straight above, and ≥ 10 px/mm.** On white paper, heaped grain or oblique views, results are not valid.

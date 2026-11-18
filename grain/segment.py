@@ -38,19 +38,22 @@ class Obj:
 
 
 def background_is_bright(gray: np.ndarray, exclude: np.ndarray | None = None) -> bool:
-    """The tray is the most common grey level (objects cover well under half the tray)."""
-    h, w = gray.shape
-    b = max(4, min(h, w) // 40)
-    ring = np.zeros_like(gray, bool)
-    ring[:b] = ring[-b:] = True
-    ring[:, :b] = ring[:, -b:] = True
+    """The tray is the most common grey level: grains cover well under half the tray.
+
+    The whole frame is used, not just its border: when the camera sees the printed calibration
+    sheet, the border is white paper while the tray (the black sample area) fills the middle.
+    """
+    s = max(1, min(gray.shape) // 400)               # subsample for speed
+    g = gray[::s, ::s]
     if exclude is not None:
-        ring &= exclude == 0
-    vals = gray[ring] if ring.any() else gray.ravel()
-    return float(np.median(vals)) > 127
+        keep = exclude[::s, ::s] == 0
+        if keep.any():
+            g = g[keep]
+    return float(np.median(g)) > 127
 
 
-def foreground_mask(img_bgr: np.ndarray, exclude: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
+def foreground_mask(img_bgr: np.ndarray, exclude: np.ndarray | None = None,
+                    max_px: float | None = None) -> tuple[np.ndarray, bool]:
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     bright = background_is_bright(gray, exclude)
     if exclude is not None and exclude.any():
@@ -65,10 +68,30 @@ def foreground_mask(img_bgr: np.ndarray, exclude: np.ndarray | None = None) -> t
         _, fg = cv2.threshold(blur, max(8, t * 0.8), 255, cv2.THRESH_BINARY)
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, k)
+    fg0 = fg.copy()                      # before large regions are dropped: used to find the tray
+    if max_px:
+        # Drop regions far larger than any grain (e.g. white paper framing the black sample area)
+        # before hole filling, otherwise the frame's "hole" - the whole tray - would be filled.
+        n, lab, st, _ = cv2.connectedComponentsWithStats(fg, connectivity=8)
+        big = np.where(st[1:, cv2.CC_STAT_AREA] > max_px)[0] + 1
+        if len(big):
+            fg[np.isin(lab, big)] = 0
     # Fill holes (dark spots inside kernels must stay part of the kernel).
     cnts, _ = cv2.findContours(fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     filled = np.zeros_like(fg)
     cv2.drawContours(filled, cnts, -1, 255, cv2.FILLED)
+    # Keep only objects lying on the tray: the largest connected tray-coloured region with its holes
+    # (the grains) filled. Drops things outside it, e.g. the insides of printed letters on the sheet.
+    bg = cv2.bitwise_not(fg0)
+    if exclude is not None:
+        bg[exclude > 0] = 0
+    n, lab, st, _ = cv2.connectedComponentsWithStats(bg, connectivity=8)
+    if n > 1:
+        tray = (lab == 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))).astype(np.uint8) * 255
+        tc, _ = cv2.findContours(tray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        region = np.zeros_like(tray)
+        cv2.drawContours(region, tc, -1, 255, cv2.FILLED)
+        filled &= region
     if exclude is not None:
         filled[exclude > 0] = 0
     return filled, bright
@@ -124,12 +147,16 @@ def _make_obj(oid: int, cnt: np.ndarray, shape: tuple, split: bool) -> Obj | Non
                float(max(breadth, 1.0)), float(ang), float(area / ha), edge, split=split)
 
 
+MAX_OBJECT_MM2 = 300.0   # larger regions are not grains (paper around the tray, grey patch, tray edge)
+
+
 def segment(img_bgr: np.ndarray, px_per_mm: float, exclude: np.ndarray | None = None,
-            min_area_mm2: float = 0.05) -> tuple[list[Obj], bool]:
-    fg, bright = foreground_mask(img_bgr, exclude)
+            min_area_mm2: float = 0.05, max_area_mm2: float = MAX_OBJECT_MM2) -> tuple[list[Obj], bool]:
     min_px = max(6.0, min_area_mm2 * px_per_mm * px_per_mm)
+    max_px = max_area_mm2 * px_per_mm * px_per_mm
+    fg, bright = foreground_mask(img_bgr, exclude, max_px)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(fg, connectivity=8)
-    comps = [i for i in range(1, n) if stats[i, cv2.CC_STAT_AREA] >= min_px]
+    comps = [i for i in range(1, n) if min_px <= stats[i, cv2.CC_STAT_AREA] <= max_px]
     if not comps:
         return [], bright
     areas = np.array([stats[i, cv2.CC_STAT_AREA] for i in comps], float)

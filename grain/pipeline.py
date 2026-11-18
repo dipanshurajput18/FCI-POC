@@ -7,7 +7,7 @@ from dataclasses import asdict
 import cv2
 import numpy as np
 
-from . import calibration, rice, sugar
+from . import calibration, condition_model, rice, sugar
 from .segment import measure_colour, segment
 
 
@@ -15,18 +15,52 @@ def classes_for(commodity: str) -> dict:
     return rice.CLASSES if commodity == "rice" else sugar.CLASSES
 
 
+def model_decision(settings, ppm: float, backlit: bool, real_camera: bool) -> tuple[bool, str]:
+    """Should the trained condition model be used for this shot? Returns (use, reason)."""
+    mode = getattr(settings, "classifier", "rules")
+    if mode == "rules":
+        return False, "rules selected"
+    if not condition_model.available():
+        return False, "model file not found - rules used"
+    if mode == "auto" and not real_camera:
+        return False, "simulated tray - rules used (the model is trained on real kernel photos)"
+    if backlit:
+        return False, "backlit tray - rules used (the model is trained on top-lit kernels)"
+    min_ppm = float(condition_model.config().get("min_px_per_mm", 10))
+    if ppm < min_ppm:
+        return False, f"{ppm:.1f} px/mm is below {min_ppm:g} px/mm - rules used (move the camera closer)"
+    return True, "AI model"
+
+
 def analyse(img: np.ndarray, commodity: str, settings, calib: calibration.Calibration | None = None,
-            fallback_px_per_mm: float = 12.0) -> dict:
-    """Full analysis of one still image. Returns a JSON-able dict plus private '_contours'."""
+            fallback_px_per_mm: float = 12.0, use_model: bool | None = None, real_camera: bool = True) -> dict:
+    """Full analysis of one still image. Returns a JSON-able dict plus private '_contours'.
+
+    use_model: None = decide from settings.classifier (full analysis); False = rules only (live preview).
+    """
     t0 = time.perf_counter()
     if calib is None:
         calib = calibration.detect(img, fallback_px_per_mm=fallback_px_per_mm)
     ppm = calib.px_per_mm
     min_area = 0.05 if commodity == "rice" else 0.004
     objs, bright = segment(img, ppm, calib.exclude_mask, min_area_mm2=min_area)
+    clf = None
     if commodity == "rice":
         gmed = measure_colour(img, objs, bright, chalk_margin=settings.chalk_margin)
-        res = rice.classify(objs, ppm, gmed, settings)
+        cond, cfg = None, None
+        if use_model is False:
+            on, why = False, "live preview - rules"
+        else:
+            on, why = model_decision(settings, ppm, bright, real_camera)
+        if on:
+            m = condition_model.load()
+            cfg = condition_model.config()
+            cond = m.predict(img, [o for o in objs if not o.touches_edge])
+            clf = {"used": "model", "name": m.name, "backend": m.backend, "note": why}
+        else:
+            clf = {"used": "rules", "note": why}
+        res = rice.classify(objs, ppm, gmed, settings, cond, cfg)
+        res["classifier"] = clf
     else:
         measure_colour(img, objs, bright, dark_delta=80, rim_tol=0.0)
         res = sugar.classify(objs, ppm, settings)

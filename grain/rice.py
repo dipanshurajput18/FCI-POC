@@ -44,6 +44,8 @@ class RiceSettings:
     disc_delta: float = 12.0        # b* above sample median -> yellow / discoloured
     damaged_frac: float = 0.025     # share of kernel with dark spots
     ref_length_mm: float = 0.0      # 0 = estimate whole-kernel length from the sample
+    # "auto": trained model for real cameras, rules for the simulator; "model"; "rules"
+    classifier: str = "auto"
 
 
 def reference_length(lengths_mm: np.ndarray) -> float:
@@ -65,8 +67,16 @@ def size_class(L: float, lb: float) -> str:
     return "Short bold"
 
 
-def classify(objs: list[Obj], px_per_mm: float, gmed: float, s: RiceSettings) -> dict:
+CONDITION = ("damaged", "discoloured", "chalky")   # what the trained model decides
+
+
+def classify(objs: list[Obj], px_per_mm: float, gmed: float, s: RiceSettings,
+             cond: dict[int, dict[str, float]] | None = None, model_cfg: dict | None = None) -> dict:
+    """cond: trained-model probabilities per object id (grain.condition_model); None = rules only."""
     sp = specmod.rice_spec()
+    model_cfg = model_cfg or {}
+    cmap = model_cfg.get("class_map", {})
+    review_below = float(model_cfg.get("review_below", 0.6))
     precedence = sp["precedence"]
     mm = 1.0 / px_per_mm
     valid = [o for o in objs if not o.touches_edge]
@@ -104,19 +114,42 @@ def classify(objs: list[Obj], px_per_mm: float, gmed: float, s: RiceSettings) ->
                 found["broken"] = f"Length {L:.2f} mm = {rel*100:.0f}% of whole ({ref:.2f} mm), < 3/4"
             if o.bright_frac >= s.chalky_frac and "red" not in found:
                 found["chalky"] = f"{o.bright_frac*100:.0f}% opaque white area (>= {s.chalky_frac*100:.0f}%)"
+            rules_cls = next((c for c in precedence if c in found), "sound")
+            probs = cond.get(o.id) if cond is not None else None
+            if probs is not None and "foreign" not in found:
+                # Trained model replaces the colour rules for condition. Red kernels were not in the
+                # training data, so a rule-detected red kernel keeps its red call.
+                for c in CONDITION:
+                    found.pop(c, None)
+                top = max(probs, key=probs.get)
+                fci = cmap.get(top, top)
+                if fci != "sound" and not ("red" in found and fci != "chalky"):
+                    found[fci] = f"AI model: {top} ({probs[top]*100:.0f}% confident)"
+                if probs[top] < review_below:
+                    review.append(f"AI model unsure ({top} {probs[top]*100:.0f}%)")
             cls = next((c for c in precedence if c in found), "sound")
             # Borderline cases go to the officer.
             if abs(rel - s.broken_frac) < 0.04:
                 review.append("length close to the broken limit")
-            if abs(o.bright_frac - s.chalky_frac) < 0.06:
+            if probs is None and abs(o.bright_frac - s.chalky_frac) < 0.06:
                 review.append("opaque area close to the chalky limit")
             if abs(o.red_frac - s.red_frac) < 0.06:
                 review.append("red area close to the limit")
             if o.split and o.solidity < 0.82:
                 review.append("touching kernels were split - check outline")
-        why = list(found.values()) if found else [f"Whole kernel ({rel*100:.0f}% of reference length), clear and uniform"]
+        if o.touches_edge:
+            rules_cls, probs = "edge", None
+        if found:
+            why = list(found.values())
+        elif probs is not None:
+            top = max(probs, key=probs.get)
+            why = [f"Whole kernel ({rel*100:.0f}% of reference length); AI model: {top} ({probs[top]*100:.0f}% confident)"]
+        else:
+            why = [f"Whole kernel ({rel*100:.0f}% of reference length), clear and uniform"]
         kernels.append({
             "id": o.id, "cls": cls, "also": [c for c in found if c != cls], "why": why, "review": review,
+            "rules_cls": rules_cls,
+            "model": {c: round(p, 3) for c, p in probs.items()} if probs is not None else None,
             "length_mm": round(L, 2), "breadth_mm": round(B, 2), "lb": round(L / B, 2) if B else 0,
             "area_mm2": round(area, 2), "rel_length": round(rel, 3),
             "L": round(o.L, 1), "a": round(o.a, 1), "b": round(o.b, 1),

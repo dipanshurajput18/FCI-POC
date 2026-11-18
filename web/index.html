@@ -92,6 +92,13 @@
     <details class="panel">
       <summary><b>Thresholds</b> <span class="muted small">(calibration aid)</span></summary>
       <div id="thrRice">
+        <label for="clf">Condition classifier (chalky / damaged / discoloured)</label>
+        <select id="clf">
+          <option value="auto">Auto: AI model on real cameras, rules on the simulator</option>
+          <option value="model">AI model (rice_condition_v1)</option>
+          <option value="rules">Rules only (colour thresholds below)</option>
+        </select>
+        <p class="muted small" id="clfNote"></p>
         <label>Broken if shorter than <output id="o-broken"></output> of whole kernel</label>
         <input type="range" id="t-broken" min="55" max="90" value="75">
         <label>Chalky if opaque area ≥ <output id="o-chalky"></output></label>

@@ -2,7 +2,10 @@
 
 | Model | Task | Test accuracy at camera resolution (12 px/mm) | Files |
 |---|---|---|---|
-| `rice_condition_v1` | rice kernel condition: sound / chalky / damaged / discoloured | **92.6%** (macro-F1 0.927) | `.onnx` (16.8 MB), `.json` (full metrics and training history) |
+| `rice_condition_v1` | rice kernel condition: sound / chalky / damaged / discoloured | 92.6% on clean down-sampled crops, **but about 61–66% with real camera noise and JPEG** (see below) | `.onnx` (16.8 MB), `.json` (full metrics and training history) |
+| `rice_condition_v2` | same task, trained with camera simulation (`training/camera_aug.py`) | in training; validation ~93% on noisy 12 px/mm camera images | added when training finishes |
+
+> **v1 is not robust to camera noise.** On a tray of real IIT test kernels with realistic sensor noise and JPEG compression (`tests/realtray.py`), v1 fell from 90% accuracy (clean) to 61%: sound kernels were read as damaged or chalky. v2 fixes this by training through a camera simulator that uses the app's own crop code.
 
 PyTorch checkpoints (`*.pt`) are not committed. Rebuild them with the commands in the main README.
 

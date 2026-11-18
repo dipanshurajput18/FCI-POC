@@ -27,15 +27,22 @@ def canonical_crop(img: np.ndarray, mask: np.ndarray, size: int = SIZE, fill: fl
     M = cv2.getRotationMatrix2D((cx, cy), ang, 1.0)
     M[0, 2] += side / 2 - cx
     M[1, 2] += side / 2 - cy
-    rot = cv2.warpAffine(img, M, (side, side), flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0))
-    rm = cv2.warpAffine((mask > 0).astype(np.uint8) * 255, M, (side, side), flags=cv2.INTER_NEAREST)
-    rot[rm == 0] = 0
-    ys, xs = np.where(rm > 0)
+    rot = cv2.warpAffine(img, M, (side, side), flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0)).astype(np.float32)
+    # Soft (anti-aliased) mask: a hard pixel mask enlarged from a low-resolution camera crop leaves
+    # a jagged, speckled outline that the model reads as damage.
+    alpha = cv2.warpAffine((mask > 0).astype(np.float32), M, (side, side), flags=cv2.INTER_LINEAR)
+    ys, xs = np.where(alpha > 0.5)
     if len(ys) == 0:
         return None
-    rot = rot[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    rot, alpha = rot[y0:y1, x0:x1], alpha[y0:y1, x0:x1]
     s = size * fill / max(rot.shape[:2])
-    rot = cv2.resize(rot, None, fx=s, fy=s, interpolation=cv2.INTER_AREA if s < 1 else cv2.INTER_CUBIC)
+    interp = cv2.INTER_AREA if s < 1 else cv2.INTER_LINEAR
+    rot = cv2.resize(rot, None, fx=s, fy=s, interpolation=interp)
+    alpha = cv2.resize(alpha, (rot.shape[1], rot.shape[0]), interpolation=interp)
+    if s > 1:
+        alpha = cv2.GaussianBlur(alpha, (0, 0), 0.5 * s)
+    rot = np.clip(rot * alpha[..., None], 0, 255).astype(np.uint8)
     out = np.zeros((size, size, 3), np.uint8)
     y0, x0 = (size - rot.shape[0]) // 2, (size - rot.shape[1]) // 2
     out[y0:y0 + rot.shape[0], x0:x0 + rot.shape[1]] = rot

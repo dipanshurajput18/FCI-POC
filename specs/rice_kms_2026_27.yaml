@@ -92,6 +92,16 @@ parameters:
     name: "Red grains"
     classes: [red]
 
+# Trained condition classifier (models/README.md). It replaces the colour rules for chalky /
+# damaged / discoloured; length, foreign matter and red stay rule-based.
+condition_model:
+  file: models/rice_condition_v1.onnx
+  min_px_per_mm: 10        # below this the model is unreliable (test: 78% at 6 px/mm) -> rules are used
+  review_below: 0.60       # model confidence below this -> grain flagged for officer review
+  # Model class -> FCI class. Fungal discolouration counts as damaged until FCI answers Q1
+  # (docs/FCI_REQUIREMENTS_TRACE.md); change "discoloured: damaged" to "discoloured: discoloured" if FCI says so.
+  class_map: {sound: sound, chalky: chalky, damaged: damaged, discoloured: damaged}
+
 not_assessed:
   - "Moisture (14%, value cut to 15%) - moisture meter / MoistureLink"
   - "De-husked grains (13%, count basis) - staining method"

@@ -16,7 +16,7 @@ from dataclasses import fields
 import cv2
 import numpy as np
 
-from grain import calibration, pipeline, rice, sugar
+from grain import calibration, condition_model, pipeline, rice, sugar
 from grain.spec import rice_spec
 
 from .camera import ImageSource, SimSource, Source
@@ -109,6 +109,8 @@ class Engine:
                     if f.name in d and d[f.name] is not None:
                         val = d[f.name]
                         setattr(obj, f.name, type(getattr(obj, f.name))(val))
+            if self.rice.classifier not in ("auto", "model", "rules"):
+                self.rice.classifier = "auto"
             if self.rice.grade not in rice_spec()["grades"]:
                 self.rice.grade = next(iter(rice_spec()["grades"]))
             self._resummarise()
@@ -152,7 +154,8 @@ class Engine:
             if hi is not None:
                 frame = hi
         cal = self._calib(frame)
-        res = pipeline.analyse(frame, self.commodity, self.settings, cal, self.fallback_ppm)
+        res = pipeline.analyse(frame, self.commodity, self.settings, cal, self.fallback_ppm,
+                               real_camera=not isinstance(self.source, SimSource))
         ann = pipeline.draw(frame, res, numbers=False, thickness=2)
         scale = min(1.0, 1600 / ann.shape[1])
         if scale < 1:
@@ -165,7 +168,8 @@ class Engine:
                 k["shot"] = n
             shot = {"n": n, "commodity": self.commodity, "kernels": res["kernels"], "ms": res["ms"],
                     "calibration": res["calibration"], "backlit": res["backlit"], "image_size": res["image_size"],
-                    "ref_length_mm": res.get("ref_length_mm"), "jpeg": jpg.tobytes(), "raw": raw.tobytes(),
+                    "ref_length_mm": res.get("ref_length_mm"), "classifier": res.get("classifier"),
+                    "jpeg": jpg.tobytes(), "raw": raw.tobytes(),
                     "time": time.strftime("%Y-%m-%d %H:%M:%S")}
             if len(self.shots) >= MAX_SHOTS:
                 self.shots.pop(0)
@@ -176,7 +180,7 @@ class Engine:
         scale = min(1.0, LIVE_MAX_W / frame.shape[1])
         small = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA) if scale < 1 else frame
         cal = calibration.detect(small, marker_mm=self.source.marker_mm, fallback_px_per_mm=self.fallback_ppm * scale)
-        res = pipeline.analyse(small, self.commodity, self.settings, cal)
+        res = pipeline.analyse(small, self.commodity, self.settings, cal, use_model=False)
         out = pipeline.draw(small, res, numbers=False, thickness=1 if self.commodity == "sugar" else 2)
         counts: dict[str, int] = {}
         for k in res["kernels"]:
@@ -245,7 +249,7 @@ class Engine:
         with self.lock:
             shots = [{"n": s["n"], "time": s["time"], "ms": s["ms"], "calibration": s["calibration"],
                       "backlit": s["backlit"], "image_size": s["image_size"], "ref_length_mm": s["ref_length_mm"],
-                      "kernels": [_public(k) for k in s["kernels"]]} for s in self.shots]
+                      "classifier": s.get("classifier"), "kernels": [_public(k) for k in s["kernels"]]} for s in self.shots]
             return {"ver": self.result_ver, "sample_id": self.sample_id, "commodity": self.commodity,
                     "grade": self.rice.grade if self.commodity == "rice" else None,
                     "lot": dict(self.lot), "summary": self.summary, "shots": shots,
@@ -258,6 +262,7 @@ class Engine:
         return {"commodity": self.commodity, "grades": list(rice_spec()["grades"].keys()),
                 "rice": asdict(self.rice), "sugar": asdict(self.sugar), "lot": self.lot,
                 "auto_capture": self.auto_capture, "use_still": self.use_still, "fallback_px_per_mm": self.fallback_ppm,
+                "model_available": condition_model.available(),
                 "presets": {"rice": {k: v["name"] for k, v in RICE_PRESETS.items()},
                             "sugar": {k: v["name"] for k, v in SUGAR_PRESETS.items()}},
                 "source": {"kind": self.source.kind, "label": self.source.label, "preset": self.preset}}

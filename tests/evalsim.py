@@ -21,7 +21,7 @@ def run(commodity, preset, seed=7, settings=None):
     s = settings or (rice.RiceSettings() if commodity == "rice" else sugar.SugarSettings())
     from grain import calibration
     cal = calibration.detect(img, marker_mm=sc.marker_mm)
-    res = pipeline.analyse(img, commodity, s, cal)
+    res = pipeline.analyse(img, commodity, s, cal, real_camera=False)   # simulator: "auto" -> rules
     summ = pipeline.summarise(res["kernels"], commodity, s)
     truth = sc.truth()
     pairs, n_det = match(res, truth, (3.3 if commodity == "rice" else 0.6) * sc.ppm)
