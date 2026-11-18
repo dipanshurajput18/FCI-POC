@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FCI AI Grain Analyser</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top"><div class="in wrap">
+  <div class="brand"><b>AI Grain Analyser</b><span>Uneecops × FCI · Phase 1 live-camera prototype · rice &amp; sugar</span></div>
+  <div class="hdr-right">
+    <span id="conn" class="pill p-info">connecting…</span>
+  </div>
+</div></header>
+
+<main class="wrap">
+<div class="view">
+  <!-- ============ CONTROL COLUMN ============ -->
+  <aside class="stack">
+    <section class="panel">
+      <div class="eyebrow">Step 1 · Commodity</div>
+      <div class="seg" role="tablist" id="commodity">
+        <button data-c="rice" class="on">Rice</button>
+        <button data-c="sugar">Sugar</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 2 · Camera</div>
+      <label for="srcKind">Source</label>
+      <select id="srcKind">
+        <option value="sim">Simulated tray (no camera needed)</option>
+        <option value="usb">USB camera / webcam</option>
+        <option value="url">Phone / IP camera (stream URL)</option>
+        <option value="file">Video file on this PC</option>
+        <option value="photo">Upload a photo</option>
+      </select>
+      <div id="srcSim">
+        <label for="preset">Sample preset</label>
+        <select id="preset"></select>
+      </div>
+      <div id="srcUsb" hidden>
+        <label for="usbIdx">Camera number</label>
+        <div class="row"><input id="usbIdx" value="0" style="width:80px"><button id="findCams" type="button">Find cameras</button></div>
+        <p class="muted small" id="camList"></p>
+      </div>
+      <div id="srcUrl" hidden>
+        <label for="url">Stream URL</label>
+        <input id="url" placeholder="http://192.168.1.20:8080/video">
+        <p class="muted small">Android "IP Webcam" app → Start server → use the shown address + <code>/video</code>.</p>
+        <label class="check"><input type="checkbox" id="useStill" checked> Analyse a full-resolution phone photo (slower, sharper)</label>
+      </div>
+      <div id="srcFile" hidden>
+        <label for="filePath">Video file path</label>
+        <input id="filePath" placeholder="C:\samples\rice_tray.mp4">
+      </div>
+      <div id="srcPhoto" hidden>
+        <label for="photo">Photo of the tray</label>
+        <input id="photo" type="file" accept="image/*">
+      </div>
+      <label for="markerMm">Calibration marker size (mm)</label>
+      <input id="markerMm" type="number" value="20" min="3" max="60" step="0.5">
+      <div class="row" style="margin-top:12px">
+        <button id="connect" class="primary" type="button">Connect</button>
+        <button id="shake" type="button" title="Simulate shaking / re-spreading the tray">Shake tray</button>
+      </div>
+      <p class="muted small" id="calInfo">Calibration: –</p>
+      <p class="small"><a href="/api/calibration-sheet.png" target="_blank" rel="noopener">Print calibration sheet (A4, 4 markers + grey patch)</a></p>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 3 · Lot details</div>
+      <label for="lot">Lot / stack / ACK ID</label><input id="lot">
+      <label for="officer">QC officer</label><input id="officer">
+      <label for="sampleG">Sample weight (g)</label><input id="sampleG" type="number" min="0" step="0.01">
+      <div id="gradeWrap">
+        <label for="grade">Specification (KMS 2026-27)</label><select id="grade"></select>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 4 · Capture</div>
+      <label class="check"><input type="checkbox" id="auto" checked> Analyse automatically when the tray is still</label>
+      <div class="row" style="margin-top:10px">
+        <button id="capture" class="grain" type="button">Capture now</button>
+        <button id="newSample" type="button">New sample</button>
+      </div>
+      <p class="muted small">Re-spread the grains and let the tray settle to add more shots to the same sample.</p>
+    </section>
+
+    <details class="panel">
+      <summary><b>Thresholds</b> <span class="muted small">(calibration aid)</span></summary>
+      <div id="thrRice">
+        <label>Broken if shorter than <output id="o-broken"></output> of whole kernel</label>
+        <input type="range" id="t-broken" min="55" max="90" value="75">
+        <label>Chalky if opaque area ≥ <output id="o-chalky"></output></label>
+        <input type="range" id="t-chalky" min="10" max="70" value="28">
+        <label>Opaque brightness margin <output id="o-margin"></output></label>
+        <input type="range" id="t-margin" min="10" max="70" value="30">
+        <label>Red if red surface ≥ <output id="o-red"></output></label>
+        <input type="range" id="t-red" min="10" max="60" value="30">
+        <label>Whole-kernel length (mm, 0 = from sample) <output id="o-ref"></output></label>
+        <input type="range" id="t-ref" min="0" max="9" step="0.1" value="0">
+      </div>
+      <div id="thrSugar" hidden>
+        <label>Lump if area ≥ <output id="o-lump"></output> × median</label>
+        <input type="range" id="t-lump" min="3" max="12" step="0.5" value="6">
+        <label>Speck if particle L* &lt; <output id="o-speck"></output></label>
+        <input type="range" id="t-speck" min="20" max="70" value="45">
+      </div>
+      <p class="muted small">Limits come from the season's specification file (<code>specs/*.yaml</code>), not from code.</p>
+    </details>
+  </aside>
+
+  <!-- ============ WORK AREA ============ -->
+  <section class="stack">
+    <div class="panel">
+      <div class="live-head">
+        <div>
+          <div class="eyebrow">Live camera</div>
+          <h1 id="srcLabel">–</h1>
+        </div>
+        <div class="row">
+          <span id="state" class="pill p-info">–</span>
+          <span class="muted small mono" id="fps"></span>
+        </div>
+      </div>
+      <div class="stage"><img id="live" alt="Live camera view with every grain outlined by class"></div>
+      <div class="legend" id="liveLegend"></div>
+      <p class="muted small" id="err" hidden></p>
+    </div>
+
+    <div class="panel" id="resultPanel">
+      <div class="eyebrow" id="resEyebrow">Result</div>
+      <div id="banner"></div>
+      <div class="kpis">
+        <div class="kpi"><b id="k1">–</b><span id="k1l">Kernels analysed</span></div>
+        <div class="kpi"><b id="k2">–</b><span>Shots</span></div>
+        <div class="kpi"><b id="k3">–</b><span id="k3l">Mean length / L:B</span></div>
+        <div class="kpi"><b id="k4">–</b><span id="k4l">Size class</span></div>
+      </div>
+      <div class="tw"><table>
+        <thead id="pHead"></thead>
+        <tbody id="pBody"><tr><td class="muted">Waiting for the first still frame…</td></tr></tbody>
+      </table></div>
+      <div id="dist"></div>
+      <p class="muted small" id="foot"></p>
+    </div>
+
+    <div class="panel">
+      <div class="live-head">
+        <div><div class="eyebrow">Evidence</div><h2>Analysed shots · click any grain to see why</h2></div>
+        <div class="row" id="thumbs"></div>
+      </div>
+      <div class="shotgrid">
+        <div class="stage shot"><img id="shotImg" alt="Analysed still image with numbered outlines"><div id="hl"></div></div>
+        <div class="inspector" id="inspector"><p class="muted">Click a grain in the image.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

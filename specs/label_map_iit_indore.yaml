@@ -1,0 +1,29 @@
+# Map IIT Indore rice dataset labels (Zenodo 10.5281/zenodo.22043091, CC BY 4.0) to FCI categories.
+# FCI definitions: specs/rice_kms_2026_27.yaml. Traceability: docs/FCI_REQUIREMENTS_TRACE.md section 4.
+#
+# Order of decisions for each kernel (IS 4333 picking order):
+#   1. source label -> FCI "condition" class (damaged / discoloured / chalky / sound)
+#   2. damaged and discoloured outrank broken in the picking order, so they keep their class
+#   3. otherwise the FCI length rule decides broken (< 3/4) / small broken (< 1/4)
+#   4. otherwise the condition class stands (chalky / sound)
+
+dataset: IIT Indore high-resolution rice benchmark
+doi: 10.5281/zenodo.22043091
+licence: CC BY 4.0
+
+# Whole-kernel reference length per variety = median length of these source classes
+# (kernels that are not broken), in mm.
+whole_length_from: [Healthy, Partial chalky, Full chalky, Discolored]
+
+labels:
+  Healthy:        {fci: sound}
+  Broken:         {fci: sound, note: "label ignored - FCI length rule decides broken / small broken / whole"}
+  Full chalky:    {fci: chalky}
+  Partial chalky: {fci: chalky_if_measured, note: "chalky only if measured milky-white fraction >= chalky_min_fraction"}
+  Peck damage:    {fci: damaged}
+  Discolored:     {fci: damaged, pending: "Q1 - FCI to confirm fungal discolouration = damaged (default) or discoloured"}
+  PB1121:         {fci: sound, variety: PB1121}
+  PB1401:         {fci: sound, variety: PB1401}
+  PR14:           {fci: sound, variety: PR14}
+
+chalky_min_fraction: 0.5   # FCI: "at least half of the kernel milky white"

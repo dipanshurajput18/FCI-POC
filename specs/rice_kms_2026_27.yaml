@@ -1,0 +1,98 @@
+# Uniform Specification of rice, KMS 2026-27 (DFPD letter, re-circulated by state food departments).
+# Limits are maximum % by weight unless basis: count.
+# Source: https://www.foododisha.in/Download/uniform-specification-of-paddy-rice-and-coarse-grains.pdf
+# Method of analysis: IS 4333 (Part 1). Each grain counts under ONE refraction, in the picking order below.
+# NOTE: brokens / foreign matter / damaged cells were OCR-damaged in the source and cross-checked with
+# earlier seasons; confirm against the signed circular before any official use.
+
+commodity: rice
+season: KMS 2026-27
+source: DFPD Uniform Specification KMS 2026-27; IS 4333 (Part 1)
+
+# Picking order (precedence) used when one kernel shows several defects.
+precedence: [foreign, damaged, discoloured, small_broken, broken, chalky, red]
+
+definitions:
+  broken: "Piece shorter than 3/4 of the average whole-kernel length"
+  small_broken: "Piece shorter than 1/4 of the average whole-kernel length"
+  foreign: "Inorganic (stones, mud) or organic (husk, chaff, other seeds, pieces < 1/8 kernel)"
+  chalky: "At least half of the kernel milky white and opaque"
+  red: "Kernel with red pericarp on the surface"
+  discoloured: "Kernel with yellow / brown tint not due to parboiling"
+  damaged: "Kernel with spots, pin-point damage or insect damage"
+
+thresholds:
+  broken_frac: 0.75        # length / reference whole length below this -> broken
+  small_broken_frac: 0.25  # below this -> small broken
+  foreign_frac: 0.125      # pieces below this length count as organic foreign matter
+
+grades:
+  "Raw rice - Grade A":
+    broken: 25.0
+    small_broken: 1.0
+    foreign: 0.5
+    damaged: 3.0
+    discoloured: 3.0
+    chalky: 5.0
+    red: 3.0
+  "Raw rice - Common":
+    broken: 25.0
+    small_broken: 1.0
+    foreign: 0.5
+    damaged: 3.0
+    discoloured: 3.0
+    chalky: 5.0
+    red: 3.0
+  "Raw rice - Improved Rice (KMS 2026-27)":
+    broken: 10.0
+    small_broken: 1.0
+    foreign: 0.5
+    damaged: 3.0
+    discoloured: 3.0
+    chalky: 5.0
+    red: 3.0
+  "Parboiled rice - Grade A / Common":
+    broken: 16.0
+    small_broken: 1.0
+    foreign: 0.5
+    damaged: 4.0
+    discoloured: 5.0
+    chalky: null           # not applicable for parboiled
+    red: 3.0
+  "Parboiled rice - Improved Rice (KMS 2026-27)":
+    broken: 5.0
+    small_broken: 1.0
+    foreign: 0.5
+    damaged: 4.0
+    discoloured: 5.0
+    chalky: null
+    red: 3.0
+
+# "brokens" in the spec includes small brokens; the report shows both lines.
+parameters:
+  - key: broken
+    name: "Brokens (incl. small brokens)"
+    classes: [broken, small_broken]
+  - key: small_broken
+    name: "  of which small brokens"
+    classes: [small_broken]
+  - key: foreign
+    name: "Foreign matter"
+    classes: [foreign]
+  - key: damaged
+    name: "Damaged / slightly damaged"
+    classes: [damaged]
+  - key: discoloured
+    name: "Discoloured grains"
+    classes: [discoloured]
+  - key: chalky
+    name: "Chalky grains"
+    classes: [chalky]
+  - key: red
+    name: "Red grains"
+    classes: [red]
+
+not_assessed:
+  - "Moisture (14%, value cut to 15%) - moisture meter / MoistureLink"
+  - "De-husked grains (13%, count basis) - staining method"
+  - "Admixture of lower class (6%) - indicative only in Phase 1"

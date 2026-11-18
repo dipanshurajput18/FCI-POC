@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Datasets and caches (download with scripts/download_iit_indore.py)
+data/**
+!data/README.md
+
+# Model checkpoints (ONNX + JSON model cards are committed; .pt checkpoints are not)
+models/*.pt
+models/*.pth
+models/*.onnx.data
+
+# Local tooling / OS
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+models/train_log.txt

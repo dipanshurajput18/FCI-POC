@@ -1,0 +1,35 @@
+# Plantation white sugar grading, IS 498:2003 (Amd 1, 2011) + specification IS 5982:2003.
+# Source: https://law.resource.org/pub/in/bis/S06/is.498.2003.pdf
+# Grade name = size group letter + colour number, e.g. M-30.
+# NOTE: check IS 498:2018 (6th revision) for changes before official use.
+
+commodity: sugar
+source: IS 498:2003 Annex C sieve test; colour by comparison with NSI Kanpur standards
+
+# Minimum % (by mass) retained on each sieve aperture (mm) for the size group.
+size_groups:
+  L:  {1.70: 70, 0.85: 95, 0.60: 99}
+  M:  {1.18: 70, 0.60: 95, 0.425: 99}
+  S:  {0.60: 70, 0.30: 95, 0.212: 99}
+  SS: {0.212: 70, 0.175: 80, 0.147: 99}
+# Coarsest first; a sample takes the first group it fully satisfies.
+group_order: [L, M, S, SS]
+
+# Colour: official method is visual comparison with NSI sealed standards.
+# Camera proxy: calibrated whiteness (mean L* of crystals, 0-100 after grey-card balance)
+# and yellowness (mean b*). Thresholds below are PLACEHOLDERS until calibrated against NSI standards.
+colour_grades:
+  "31": {min_L: 86, max_b: 4.0}
+  "30": {min_L: 82, max_b: 7.0}
+  "29": {min_L: 75, max_b: 10.0}
+
+# Visible contamination (indicative; no numeric limit in IS 498 - flagged for the officer).
+specks:
+  dark_L_max: 45            # crystal-region pixels darker than this L* are speck candidates
+  min_area_mm2: 0.02
+  alert_per_1000_crystals: 3
+
+not_assessed:
+  - "ICUMSA colour (max 150 IU) - spectrophotometer"
+  - "Moisture / loss on drying (max 0.10%) - oven"
+  - "Polarisation, reducing sugars, conductivity ash, SO2 (max 70 mg/kg), lead - chemical tests"

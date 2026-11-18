@@ -1,0 +1,10 @@
+[project]
+name = "fci-poc"
+version = "0.1.0"
+description = "FCI proof of concept - Phase 1: AI grain analyser (rice + sugar, live camera); Phase 2: MoistureLink"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
