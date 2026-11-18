@@ -10,6 +10,8 @@ includes accuracy at simulated 24 and 12 px/mm.
 Usage (from AI-anaylser/):
     .venv\\Scripts\\python -m training.train_condition --bench        # time one batch
     .venv\\Scripts\\python -m training.train_condition --epochs 14
+    .venv\\Scripts\\python -m training.train_condition --epochs 14 --resume   # after an interruption
+    .venv\\Scripts\\python -m training.train_condition --eval-only            # test + export the saved best
 Outputs: models/rice_condition_v1.pt / .onnx / .json
 """
 from __future__ import annotations
@@ -122,6 +124,8 @@ def main() -> None:
     ap.add_argument("--bs", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--bench", action="store_true")
+    ap.add_argument("--resume", action="store_true", help="continue from models/<name>_state.pt")
+    ap.add_argument("--eval-only", action="store_true", help="skip training: test + export the saved best checkpoint")
     args = ap.parse_args()
 
     d = np.load(CACHE)
@@ -152,8 +156,15 @@ def main() -> None:
         return
 
     MODELS.mkdir(exist_ok=True)
-    best, hist = -1.0, []
-    for ep in range(args.epochs):
+    state_path = MODELS / f"{NAME}_state.pt"
+    best, hist, start = -1.0, [], 0
+    if args.resume and state_path.exists():
+        st = torch.load(state_path, weights_only=False)
+        model.load_state_dict(st["model"]); opt.load_state_dict(st["opt"]); sched.load_state_dict(st["sched"])
+        best, hist, start = st["best"], st["hist"], st["epoch"]
+        np.random.set_state(st["np_rng"]); torch.set_rng_state(st["torch_rng"])
+        print(f"resumed after epoch {start} (best score {best:.3f})", flush=True)
+    for ep in range(start, 0 if args.eval_only else args.epochs):
         model.train()
         perm = np.random.permutation(tr)
         t0, tot, nb = time.time(), 0.0, 0
@@ -162,7 +173,7 @@ def main() -> None:
             xb = normalise(augment(to_tensor(X[idx])))
             loss = crit(model(xb), torch.from_numpy(y[idx]))
             opt.zero_grad(); loss.backward(); opt.step(); sched.step()
-            tot += float(loss); nb += 1
+            tot += loss.item(); nb += 1
         pv = predict(model, X[va]).argmax(1)
         pv_lo = predict(model, X[va], 0.5).argmax(1)
         mv, mlo = metrics(y[va], pv, classes), metrics(y[va], pv_lo, classes)
@@ -177,6 +188,10 @@ def main() -> None:
         print(f"epoch {ep + 1:2d}/{args.epochs}  loss {tot / nb:.3f}  val acc {mv['accuracy']:.3f} "
               f"F1 {mv['macro_f1']:.3f} | at 12 px/mm F1 {mlo['macro_f1']:.3f}  "
               f"({(time.time() - t0) / 60:.1f} min){tag}", flush=True)
+        # full training state every epoch, so an interrupted run continues with --resume
+        torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
+                    "best": best, "hist": hist, "epoch": ep + 1,
+                    "np_rng": np.random.get_state(), "torch_rng": torch.get_rng_state()}, state_path)
 
     # ---- test on the held-out split with the best checkpoint
     model.load_state_dict(torch.load(MODELS / f"{NAME}.pt"))

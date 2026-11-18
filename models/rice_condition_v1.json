@@ -1,0 +1,315 @@
+{
+  "name": "rice_condition_v1",
+  "task": "rice kernel condition (brokenness is decided by the FCI length rule, not this model)",
+  "classes": [
+    "sound",
+    "chalky",
+    "damaged",
+    "discoloured"
+  ],
+  "fci_mapping": "specs/label_map_iit_indore.yaml (discoloured -> damaged pending FCI Q1)",
+  "input": {
+    "size": 128,
+    "crop": "grain.crop.canonical_crop",
+    "channel_order": "RGB",
+    "scale": "1/255",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "architecture": "torchvision MobileNetV3-Large, ImageNet IMAGENET1K_V2 init",
+  "data": {
+    "dataset": "IIT Indore rice benchmark, BPT5204 segmented images",
+    "doi": "10.5281/zenodo.22043091",
+    "licence": "CC BY 4.0",
+    "n_train": 9961,
+    "n_val": 2136,
+    "n_test": 2131
+  },
+  "training": {
+    "epochs": 14,
+    "batch": 64,
+    "lr": 0.001,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.7400579779193952,
+        "val_f1": 0.7301210677796353,
+        "val_f1_12ppm": 0.8554477630516722,
+        "minutes": 3.8781026800473533
+      },
+      {
+        "epoch": 2,
+        "loss": 0.4531771225424913,
+        "val_f1": 0.9154114925322355,
+        "val_f1_12ppm": 0.8560967136302123,
+        "minutes": 4.443613378206889
+      },
+      {
+        "epoch": 3,
+        "loss": 0.42262249019665593,
+        "val_f1": 0.8347121235219108,
+        "val_f1_12ppm": 0.9250636690984346,
+        "minutes": 4.546169130007426
+      },
+      {
+        "epoch": 4,
+        "loss": 0.3945614240872554,
+        "val_f1": 0.885075236236079,
+        "val_f1_12ppm": 0.9169709497290797,
+        "minutes": 4.3438565850257875
+      },
+      {
+        "epoch": 5,
+        "loss": 0.39594251968157596,
+        "val_f1": 0.8058767447105792,
+        "val_f1_12ppm": 0.915577069154311,
+        "minutes": 4.087838915983836
+      },
+      {
+        "epoch": 6,
+        "loss": 0.3780773068085695,
+        "val_f1": 0.8575924143244126,
+        "val_f1_12ppm": 0.9114881619586578,
+        "minutes": 4.174317395687103
+      },
+      {
+        "epoch": 7,
+        "loss": 0.37374395762498563,
+        "val_f1": 0.8120055192500726,
+        "val_f1_12ppm": 0.924295849359247,
+        "minutes": 4.481615475813547
+      },
+      {
+        "epoch": 8,
+        "loss": 0.35991620081357467,
+        "val_f1": 0.884347168886017,
+        "val_f1_12ppm": 0.9390897881769287,
+        "minutes": 4.014805301030477
+      },
+      {
+        "epoch": 9,
+        "loss": 0.3547098962351298,
+        "val_f1": 0.8754286933183816,
+        "val_f1_12ppm": 0.9437236318816594,
+        "minutes": 3.8946298956871033
+      },
+      {
+        "epoch": 10,
+        "loss": 0.3429413548646829,
+        "val_f1": 0.8871008443832797,
+        "val_f1_12ppm": 0.9430478705572498,
+        "minutes": 4.114757454395294
+      },
+      {
+        "epoch": 11,
+        "loss": 0.3351158293393942,
+        "val_f1": 0.9022190136247308,
+        "val_f1_12ppm": 0.9408165464283686,
+        "minutes": 4.000856614112854
+      },
+      {
+        "epoch": 12,
+        "loss": 0.33010763006332594,
+        "val_f1": 0.901787716445912,
+        "val_f1_12ppm": 0.939666613985561,
+        "minutes": 3.9965526898701986
+      },
+      {
+        "epoch": 13,
+        "loss": 0.3280353126808619,
+        "val_f1": 0.906082256756127,
+        "val_f1_12ppm": 0.9401760276900675,
+        "minutes": 4.1129510243733725
+      },
+      {
+        "epoch": 14,
+        "loss": 0.3231775450209777,
+        "val_f1": 0.904322703684123,
+        "val_f1_12ppm": 0.9404779574919591,
+        "minutes": 4.107940848668417
+      }
+    ]
+  },
+  "test": {
+    "full_res_22ppm": {
+      "accuracy": 0.9202252463632098,
+      "macro_f1": 0.9159669130968219,
+      "per_class": {
+        "sound": {
+          "precision": 0.8855,
+          "recall": 0.9595,
+          "f1": 0.921,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.9964,
+          "recall": 0.7292,
+          "f1": 0.8421,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9696,
+          "recall": 0.9503,
+          "f1": 0.9599,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9122,
+          "recall": 0.9715,
+          "f1": 0.9409,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          781,
+          0,
+          1,
+          32
+        ],
+        [
+          86,
+          280,
+          0,
+          18
+        ],
+        [
+          6,
+          0,
+          287,
+          9
+        ],
+        [
+          9,
+          1,
+          8,
+          613
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9282027217268888
+    },
+    "camera_12ppm": {
+      "accuracy": 0.9263256687001408,
+      "macro_f1": 0.9265029559717837,
+      "per_class": {
+        "sound": {
+          "precision": 0.9663,
+          "recall": 0.8796,
+          "f1": 0.9209,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.7871,
+          "recall": 0.9818,
+          "f1": 0.8737,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9365,
+          "recall": 0.9768,
+          "f1": 0.9562,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9832,
+          "recall": 0.9287,
+          "f1": 0.9552,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          716,
+          89,
+          2,
+          7
+        ],
+        [
+          7,
+          377,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          295,
+          3
+        ],
+        [
+          14,
+          13,
+          18,
+          586
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9361801970905678
+    },
+    "camera_6ppm": {
+      "accuracy": 0.7780384795870483,
+      "macro_f1": 0.7993913216146886,
+      "per_class": {
+        "sound": {
+          "precision": 0.9697,
+          "recall": 0.629,
+          "f1": 0.763,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.4764,
+          "recall": 1.0,
+          "f1": 0.6454,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9108,
+          "recall": 0.9801,
+          "f1": 0.9442,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9873,
+          "recall": 0.7385,
+          "f1": 0.845,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          512,
+          298,
+          1,
+          3
+        ],
+        [
+          0,
+          384,
+          0,
+          0
+        ],
+        [
+          2,
+          1,
+          296,
+          3
+        ],
+        [
+          14,
+          123,
+          28,
+          466
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.7925856405443453
+    }
+  },
+  "onnx_max_abs_diff": 4.291534423828125e-06
+}

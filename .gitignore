@@ -25,3 +25,6 @@ models/*.onnx.data
 Thumbs.db
 *.log
 models/train_log.txt
+models/*_state.pt
+models/run1_train_log.txt
+models/train_err.txt
