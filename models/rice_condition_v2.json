@@ -1,0 +1,461 @@
+{
+  "name": "rice_condition_v2",
+  "task": "rice kernel condition (brokenness is decided by the FCI length rule, not this model)",
+  "classes": [
+    "sound",
+    "chalky",
+    "damaged",
+    "discoloured"
+  ],
+  "fci_mapping": "specs/rice_kms_2026_27.yaml condition_model.class_map",
+  "input": {
+    "size": 128,
+    "crop": "grain.crop.canonical_crop",
+    "channel_order": "RGB",
+    "scale": "1/255",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "architecture": "torchvision MobileNetV3-Large, ImageNet IMAGENET1K_V2 init",
+  "data": {
+    "dataset": "IIT Indore rice benchmark, BPT5204 segmented images",
+    "doi": "10.5281/zenodo.22043091",
+    "licence": "CC BY 4.0",
+    "n_train": 9961,
+    "n_val": 2136,
+    "n_test": 2131
+  },
+  "training": {
+    "epochs": 14,
+    "batch": 64,
+    "lr": 0.001,
+    "camera_aug": true,
+    "camera_aug_share": 0.85,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.7846555734674135,
+        "val_f1": 0.8346215648120296,
+        "val_f1_camera12": 0.7975606571277751,
+        "minutes": 6.030889423688253
+      },
+      {
+        "epoch": 2,
+        "loss": 0.5186570145380802,
+        "val_f1": 0.8777783032383765,
+        "val_f1_camera12": 0.7811591813985029,
+        "minutes": 5.009845026334127
+      },
+      {
+        "epoch": 3,
+        "loss": 0.47320471684902143,
+        "val_f1": 0.9187277840780954,
+        "val_f1_camera12": 0.8810856543331191,
+        "minutes": 4.535103861490885
+      },
+      {
+        "epoch": 4,
+        "loss": 0.4513053957086343,
+        "val_f1": 0.8360419405127539,
+        "val_f1_camera12": 0.781109801429466,
+        "minutes": 3.993709711233775
+      },
+      {
+        "epoch": 5,
+        "loss": 0.42732745504532105,
+        "val_f1": 0.9233184848074671,
+        "val_f1_camera12": 0.8957155096710371,
+        "minutes": 3.989144968986511
+      },
+      {
+        "epoch": 6,
+        "loss": 0.42655629301682496,
+        "val_f1": 0.9189029077224911,
+        "val_f1_camera12": 0.9207224476557865,
+        "minutes": 3.990325752894084
+      },
+      {
+        "epoch": 7,
+        "loss": 0.41469616366502565,
+        "val_f1": 0.940887885398307,
+        "val_f1_camera12": 0.9213009821015642,
+        "minutes": 3.942737102508545
+      },
+      {
+        "epoch": 8,
+        "loss": 0.40182399654235595,
+        "val_f1": 0.9087594523827787,
+        "val_f1_camera12": 0.9068931141067713,
+        "minutes": 3.961122691631317
+      },
+      {
+        "epoch": 9,
+        "loss": 0.39444890656532383,
+        "val_f1": 0.9400853149755172,
+        "val_f1_camera12": 0.9274845345935574,
+        "minutes": 4.126195522149404
+      },
+      {
+        "epoch": 10,
+        "loss": 0.3874515631260016,
+        "val_f1": 0.9459700494839156,
+        "val_f1_camera12": 0.9233175312760222,
+        "minutes": 5.735302917162577
+      },
+      {
+        "epoch": 11,
+        "loss": 0.3746037053374144,
+        "val_f1": 0.9449231676751552,
+        "val_f1_camera12": 0.9314645615868857,
+        "minutes": 7.405226771036784
+      },
+      {
+        "epoch": 12,
+        "loss": 0.37068615089624357,
+        "val_f1": 0.9427574796039251,
+        "val_f1_camera12": 0.9323560097403141,
+        "minutes": 6.446966743469238
+      },
+      {
+        "epoch": 13,
+        "loss": 0.3657474699310767,
+        "val_f1": 0.9490833963916638,
+        "val_f1_camera12": 0.9296461482343792,
+        "minutes": 8.863923537731171
+      },
+      {
+        "epoch": 14,
+        "loss": 0.3623836115002632,
+        "val_f1": 0.9488082084886514,
+        "val_f1_camera12": 0.9288407519956645,
+        "minutes": 7.721085854371389
+      }
+    ]
+  },
+  "eval_cameras": {
+    "camera_18ppm": {
+      "ppm": 18,
+      "noise": 2.0,
+      "jpeg": 90,
+      "blur": 0.5,
+      "tray": 18
+    },
+    "camera_12ppm": {
+      "ppm": 12,
+      "noise": 2.0,
+      "jpeg": 90,
+      "blur": 0.6,
+      "tray": 18
+    },
+    "camera_12ppm_noisy": {
+      "ppm": 12,
+      "noise": 4.0,
+      "jpeg": 70,
+      "blur": 0.8,
+      "tray": 25
+    },
+    "camera_8ppm": {
+      "ppm": 8,
+      "noise": 2.0,
+      "jpeg": 90,
+      "blur": 0.6,
+      "tray": 18
+    }
+  },
+  "test": {
+    "dataset_clean": {
+      "accuracy": 0.9427498826841858,
+      "macro_f1": 0.9429942671417435,
+      "per_class": {
+        "sound": {
+          "precision": 0.9419,
+          "recall": 0.9361,
+          "f1": 0.939,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.9213,
+          "recall": 0.9141,
+          "f1": 0.9176,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9697,
+          "recall": 0.9536,
+          "f1": 0.9616,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9441,
+          "recall": 0.9635,
+          "f1": 0.9537,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          762,
+          24,
+          0,
+          28
+        ],
+        [
+          33,
+          351,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          288,
+          8
+        ],
+        [
+          8,
+          6,
+          9,
+          608
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9507273580478649
+    },
+    "camera_18ppm": {
+      "accuracy": 0.9413420929141249,
+      "macro_f1": 0.9418154265632607,
+      "per_class": {
+        "sound": {
+          "precision": 0.9463,
+          "recall": 0.93,
+          "f1": 0.938,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.8925,
+          "recall": 0.9297,
+          "f1": 0.9107,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9577,
+          "recall": 0.9735,
+          "f1": 0.9655,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9583,
+          "recall": 0.9477,
+          "f1": 0.953,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          757,
+          35,
+          1,
+          21
+        ],
+        [
+          27,
+          357,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          294,
+          5
+        ],
+        [
+          13,
+          8,
+          12,
+          598
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9493195682778038
+    },
+    "camera_12ppm": {
+      "accuracy": 0.9352416705771938,
+      "macro_f1": 0.935220862464564,
+      "per_class": {
+        "sound": {
+          "precision": 0.9337,
+          "recall": 0.9349,
+          "f1": 0.9343,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.9028,
+          "recall": 0.9193,
+          "f1": 0.911,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9417,
+          "recall": 0.9636,
+          "f1": 0.9525,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.9545,
+          "recall": 0.9319,
+          "f1": 0.9431,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          761,
+          31,
+          1,
+          21
+        ],
+        [
+          30,
+          353,
+          1,
+          0
+        ],
+        [
+          4,
+          0,
+          291,
+          7
+        ],
+        [
+          20,
+          7,
+          16,
+          588
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9460347254809949
+    },
+    "camera_12ppm_noisy": {
+      "accuracy": 0.9267949319568278,
+      "macro_f1": 0.9278099018637258,
+      "per_class": {
+        "sound": {
+          "precision": 0.9323,
+          "recall": 0.914,
+          "f1": 0.9231,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.8982,
+          "recall": 0.8958,
+          "f1": 0.897,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9568,
+          "recall": 0.9536,
+          "f1": 0.9552,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.923,
+          "recall": 0.9493,
+          "f1": 0.9359,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          744,
+          32,
+          2,
+          36
+        ],
+        [
+          36,
+          344,
+          1,
+          3
+        ],
+        [
+          3,
+          0,
+          288,
+          11
+        ],
+        [
+          15,
+          7,
+          10,
+          599
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9366494603472548
+    },
+    "camera_8ppm": {
+      "accuracy": 0.9169404035664007,
+      "macro_f1": 0.9181716663898225,
+      "per_class": {
+        "sound": {
+          "precision": 0.9092,
+          "recall": 0.9226,
+          "f1": 0.9159,
+          "n": 814
+        },
+        "chalky": {
+          "precision": 0.8747,
+          "recall": 0.9089,
+          "f1": 0.8914,
+          "n": 384
+        },
+        "damaged": {
+          "precision": 0.9323,
+          "recall": 0.957,
+          "f1": 0.9444,
+          "n": 302
+        },
+        "discoloured": {
+          "precision": 0.948,
+          "recall": 0.8954,
+          "f1": 0.9209,
+          "n": 631
+        }
+      },
+      "confusion": [
+        [
+          751,
+          39,
+          2,
+          22
+        ],
+        [
+          35,
+          349,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          289,
+          9
+        ],
+        [
+          36,
+          11,
+          19,
+          565
+        ]
+      ],
+      "fci_q1_default_accuracy": 0.9300797747536368
+    }
+  },
+  "onnx_max_abs_diff": 1.539289951324463e-05
+}

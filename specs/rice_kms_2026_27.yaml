@@ -95,7 +95,7 @@ parameters:
 # Trained condition classifier (models/README.md). It replaces the colour rules for chalky /
 # damaged / discoloured; length, foreign matter and red stay rule-based.
 condition_model:
-  file: models/rice_condition_v1.onnx
+  file: models/rice_condition_v2.onnx   # v2: trained with camera simulation (models/README.md)
   min_px_per_mm: 10        # below this the model is unreliable (test: 78% at 6 px/mm) -> rules are used
   review_below: 0.60       # model confidence below this -> grain flagged for officer review
   # Model class -> FCI class. Fungal discolouration counts as damaged until FCI answers Q1

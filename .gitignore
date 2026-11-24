@@ -30,3 +30,4 @@ models/run1_train_log.txt
 models/train_err.txt
 models/train_v2_log.txt
 models/train_v2_err.txt
+models/train_v2_log_part1.txt
