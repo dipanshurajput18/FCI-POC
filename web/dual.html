@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FCI AI Grain Analyser · Dual camera</title>
+<link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+<header class="top"><div class="in wrap">
+  <div class="brand"><b>AI Grain Analyser</b><span>Uneecops × FCI · dual-camera glass rig · both faces of every grain</span></div>
+  <nav class="pages"><a href="/">Single camera</a><a href="/dual" class="on">Dual camera · glass rig</a></nav>
+  <div class="hdr-right"><span id="conn" class="pill p-info">connecting…</span></div>
+</div></header>
+
+<main class="wrap">
+<div class="view">
+  <aside class="stack">
+    <details class="panel" id="rigPanel">
+      <summary><b>The rig</b> <span class="muted small">(3D model · drag to rotate)</span></summary>
+      <iframe id="rig" title="3D model of the dual-camera glass rig" loading="lazy"></iframe>
+      <p class="small"><a href="/rig3d" target="_blank" rel="noopener">Open the 3D model full screen ↗</a></p>
+      <ul class="small rig-notes">
+        <li>Rice spread on a <b>clear glass plate</b>, one phone above and one below.</li>
+        <li><b>Matte black card</b> with a lens hole behind each phone, so each phone sees rice on black.</li>
+        <li>Calibration markers printed twice and <b>glued back to back</b> at the glass corners.</li>
+        <li>The bottom phone sees a <b>mirror image</b>; the app flips it back.</li>
+      </ul>
+    </details>
+
+    <section class="panel">
+      <div class="eyebrow">Step 1 · Two cameras</div>
+      <label for="srcKind">Source</label>
+      <select id="srcKind">
+        <option value="sim">Simulated glass rig (no phones needed)</option>
+        <option value="url">Two phones (IP Webcam)</option>
+      </select>
+      <div id="srcSim">
+        <label for="preset">Sample preset</label>
+        <select id="preset"></select>
+      </div>
+      <div id="srcUrl" hidden>
+        <label for="topUrl">Top phone (looks down at the rice)</label>
+        <input id="topUrl" placeholder="http://192.168.1.20:8080/video">
+        <label for="botUrl">Bottom phone (looks up through the glass)</label>
+        <input id="botUrl" placeholder="http://192.168.1.21:8080/video">
+        <p class="muted small">Both phones: IP Webcam → Start server → the shown address + <code>/video</code>. Line the two phones up roughly, same way round.</p>
+        <label class="check"><input type="checkbox" id="useStill" checked> Analyse full-resolution photos from both phones</label>
+      </div>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="flip" checked> Bottom view is a mirror image: flip it</label>
+      <label for="markerMm">Calibration marker size (mm)</label>
+      <input id="markerMm" type="number" value="20" min="3" max="60" step="0.5">
+      <div class="row" style="margin-top:12px">
+        <button id="connect" class="primary" type="button">Connect</button>
+        <button id="shake" type="button" title="Simulate re-spreading the rice">Shake plate</button>
+      </div>
+      <p class="muted small" id="calInfo">Calibration: –</p>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 2 · Lot details</div>
+      <label for="lot">Lot / stack / ACK ID</label><input id="lot">
+      <label for="officer">QC officer</label><input id="officer">
+      <label for="sampleG">Sample weight (g)</label><input id="sampleG" type="number" min="0" step="0.01">
+      <label for="grade">Specification (KMS 2026-27)</label><select id="grade"></select>
+      <p class="muted small">Shared with the single-camera page.</p>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 3 · How the two faces are combined</div>
+      <ul class="small rig-notes">
+        <li><b>Length, broken, foreign matter, weight:</b> top camera (no glass in the way).</li>
+        <li><b>Damaged, discoloured, red:</b> counted if <b>either</b> face shows it.</li>
+      </ul>
+      <label for="chalky">Chalky grain (waiting for FCI's answer)</label>
+      <select id="chalky">
+        <option value="either">Chalky if either face is chalky</option>
+        <option value="both">Chalky only if both faces are chalky</option>
+        <option value="top">Top face only (like the single camera)</option>
+      </select>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Step 4 · Capture</div>
+      <label class="check"><input type="checkbox" id="auto" checked> Analyse automatically when the plate is still</label>
+      <div class="row" style="margin-top:10px">
+        <button id="capture" class="grain" type="button">Capture now</button>
+        <button id="newSample" type="button">New sample</button>
+      </div>
+      <p class="muted small">Each capture takes one photo from each phone at the same moment.</p>
+    </section>
+  </aside>
+
+  <section class="stack">
+    <div class="panel">
+      <div class="live-head">
+        <div><div class="eyebrow">Live cameras</div><h1 id="srcLabel">–</h1></div>
+        <div class="row"><span id="state" class="pill p-info">–</span><span class="muted small mono" id="fps"></span></div>
+      </div>
+      <div class="stage"><img id="live" alt="Top and bottom camera views side by side, grains outlined by class"></div>
+      <div class="legend" id="liveLegend"></div>
+      <p class="muted small" id="err" hidden></p>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow">Two-side check</div>
+      <div class="kpis" style="margin-top:8px">
+        <div class="kpi"><b id="s1">–</b><span>Grains matched top ↔ bottom</span></div>
+        <div class="kpi hl"><b id="s2">–</b><span id="s2l">Defects seen only from below</span></div>
+        <div class="kpi"><b id="s3">–</b><span>Seen by one camera only</span></div>
+        <div class="kpi"><b id="s4">–</b><span id="s4l">Alignment</span></div>
+      </div>
+      <p class="muted small" id="statNote"></p>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow" id="resEyebrow">Result</div>
+      <div id="banner"></div>
+      <div class="kpis">
+        <div class="kpi"><b id="k1">–</b><span>Kernels analysed</span></div>
+        <div class="kpi"><b id="k2">–</b><span>Shots (photo pairs)</span></div>
+        <div class="kpi"><b id="k3">–</b><span id="k3l">Mean length / L:B</span></div>
+        <div class="kpi"><b id="k4">–</b><span>Size class</span></div>
+      </div>
+      <div class="tw"><table><thead id="pHead"></thead>
+        <tbody id="pBody"><tr><td class="muted">Waiting for the first still plate…</td></tr></tbody></table></div>
+      <p class="muted small" id="foot"></p>
+    </div>
+
+    <div class="panel">
+      <div class="live-head">
+        <div><div class="eyebrow">Evidence</div><h2>Both faces · click a grain in either picture</h2></div>
+        <div class="row" id="thumbs"></div>
+      </div>
+      <div class="pairgrid">
+        <figure><figcaption class="small muted">Top camera · final (combined) result</figcaption>
+          <div class="stage shot"><img id="imgT" alt="Top view, outlines show the combined result"><div class="hlbox" id="hlT"></div></div></figure>
+        <figure><figcaption class="small muted">Bottom camera · what the underside shows (mirror corrected)</figcaption>
+          <div class="stage shot"><img id="imgB" alt="Bottom view through the glass"><div class="hlbox" id="hlB"></div></div></figure>
+      </div>
+      <p class="small muted">Cyan rings = defect visible only from below.</p>
+      <div class="inspector" id="inspector"><p class="muted">Click a grain in either picture.</p></div>
+    </div>
+  </section>
+</div>
+</main>
+<script src="/static/dual.js?v=2"></script>
+</body>
+</html>

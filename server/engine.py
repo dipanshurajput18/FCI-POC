@@ -51,6 +51,7 @@ class Engine:
         self.live_ver = 0
         self.live = {"state": "starting", "fps": 0.0, "counts": {}, "n": 0, "motion": 0.0, "calibration": None}
         self.error: str | None = None
+        self.clients = 0          # open pages; the loop idles when nobody is watching
         self._capture_now = False
         self._armed = True
         self._stop = False
@@ -198,6 +199,9 @@ class Engine:
         fps = 0.0
         while not self._stop:
             try:
+                if self.clients <= 0 and not self._capture_now:
+                    time.sleep(0.25)
+                    continue
                 src = self.source
                 frame = src.read()
                 if frame is None:

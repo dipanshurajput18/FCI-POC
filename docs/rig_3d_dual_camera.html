@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dual-camera glass rig</title>
+<style>
+:root{--bg:#f5f4ef;--card:#ffffff;--text:#2c2c2a;--muted:#5f5e5a;--border:#d3d1c7;--bad-bg:#fcebeb;--bad:#791f1f;--good-bg:#eaf3de;--good:#27500a}
+@media (prefers-color-scheme: dark){:root{--bg:#1f1f1d;--card:#2c2c2a;--text:#f1efe8;--muted:#b4b2a9;--border:#444441;--bad-bg:#501313;--bad:#f7c1c1;--good-bg:#173404;--good:#c0dd97}}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1100px;margin:0 auto}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:14px}
+#w{position:relative;width:100%;height:min(70vh,620px);border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border)}
+.lab{position:absolute;right:8px;width:37%;font-size:12px;padding:3px 8px;border-radius:6px;background:rgba(44,44,42,.85);color:#fff;pointer-events:none}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+button{font:inherit;font-size:14px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+#msg{margin-top:10px;font-size:15px;line-height:1.6;padding:10px 12px;border-radius:8px}
+.bad{background:var(--bad-bg);color:var(--bad)}
+.good{background:var(--good-bg);color:var(--good)}
+</style>
+</head>
+<body>
+<main>
+<h1>Dual-camera glass rig</h1>
+<p class="sub">FCI grain analyser. Drag to rotate, scroll to zoom. The right-hand panels show what each phone actually sees.</p>
+<div id="w"><div class="lab" id="l1" style="top:8px">What the TOP phone sees</div><div class="lab" id="l2">What the BOTTOM phone sees</div></div>
+<div class="bar"><button id="tg" onclick="toggle()">Black cards: OFF (click to turn ON)</button><button onclick="spin=!spin">Rotate on/off</button></div>
+<div id="msg"></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const w=document.getElementById('w');
+const r=new THREE.WebGLRenderer({antialias:true,alpha:true});r.setPixelRatio(Math.min(devicePixelRatio,2));
+r.setSize(w.clientWidth,w.clientHeight);r.setScissorTest(true);w.prepend(r.domElement);
+const S=new THREE.Scene();
+S.add(new THREE.AmbientLight(0xffffff,.55));const d=new THREE.DirectionalLight(0xffffff,.5);d.position.set(20,60,30);S.add(d);
+const std=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8},o));
+function tex(draw,wd=256,ht=256){const c=document.createElement('canvas');c.width=wd;c.height=ht;draw(c.getContext('2d'),wd,ht);return new THREE.CanvasTexture(c);}
+const wood=tex((g,W,H)=>{g.fillStyle='#a8743a';g.fillRect(0,0,W,H);for(let i=0;i<40;i++){g.strokeStyle=i%3?'#8a5a26':'#c48a4a';g.lineWidth=2+Math.random()*4;g.beginPath();const y=Math.random()*H;g.moveTo(0,y);g.bezierCurveTo(W/3,y+20,2*W/3,y-20,W,y+5);g.stroke();}
+ g.fillStyle='#2b6cb0';g.fillRect(30,40,60,40);g.fillStyle='#e24b4a';g.beginPath();g.arc(190,190,28,0,7);g.fill();g.fillStyle='#fff';g.fillRect(150,60,70,10);g.fillRect(150,80,50,10);});
+const table=new THREE.Mesh(new THREE.BoxGeometry(80,2,60),new THREE.MeshStandardMaterial({map:wood}));table.position.y=-31;S.add(table);
+const ceil=tex((g,W,H)=>{g.fillStyle='#d8d6cf';g.fillRect(0,0,W,H);g.fillStyle='#fffbe6';g.fillRect(40,110,176,26);g.fillStyle='#6b6a66';g.fillRect(0,20,W,12);g.fillRect(0,220,W,12);g.fillStyle='#444';g.beginPath();g.arc(200,60,18,0,7);g.fill();});
+const ceiling=new THREE.Mesh(new THREE.PlaneGeometry(90,70),new THREE.MeshBasicMaterial({map:ceil,side:THREE.DoubleSide}));ceiling.rotation.x=Math.PI/2;ceiling.position.y=48;ceiling.layers.set(1);S.add(ceiling);
+[[-15,-11],[15,-11],[-15,11],[15,11]].forEach(([x,z])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(.6,.6,30),std(0x888780));l.position.set(x,-15.5,z);S.add(l);});
+const glass=new THREE.Mesh(new THREE.BoxGeometry(34,.5,26),new THREE.MeshPhysicalMaterial({color:0xbfeee0,transparent:true,opacity:.22,roughness:0,depthWrite:false}));S.add(glass);
+S.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(34,.5,26)),new THREE.LineBasicMaterial({color:0x5dcaa5})));
+const mk=tex((g)=>{g.fillStyle='#fff';g.fillRect(0,0,256,256);g.fillStyle='#000';g.fillRect(32,32,192,192);g.fillStyle='#fff';[[0,1,1,0],[1,0,1,1],[0,1,0,0],[1,1,0,1]].forEach((row,i)=>row.forEach((v,j)=>{if(v)g.fillRect(64+j*32,64+i*32,32,32);}));});
+[[-14,-10],[14,-10],[-14,10],[14,10]].forEach(([x,z])=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(3.6,3.6),new THREE.MeshBasicMaterial({map:mk,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(x,.3,z);S.add(m);});
+let sd=5;const rn=()=>(sd=sd*16807%2147483647)/2147483647;const rg=new THREE.SphereGeometry(1,14,8);
+for(let i=0;i<55;i++){const k=rn();const m=new THREE.Mesh(rg,std(k<.1?0xba7517:0xf6f1e3,{roughness:.5}));m.scale.set(.9,.3,.34);m.position.set(-10+rn()*20,.5,-7+rn()*14);m.rotation.y=rn()*3.14;S.add(m);}
+function phone(y,up){const g=new THREE.Group();g.add(new THREE.Mesh(new THREE.BoxGeometry(8,.9,16),std(0x2c2c2a,{roughness:.4})));
+ const lens=new THREE.Mesh(new THREE.CylinderGeometry(.9,.9,.5,20),std(0x111111));lens.position.set(0,up?.6:-.6,0);g.add(lens);g.position.y=y;S.add(g);}
+phone(23.2,false);phone(-23.2,true);
+function card(y){const s=new THREE.Shape();s.moveTo(-34,-26);s.lineTo(34,-26);s.lineTo(34,26);s.lineTo(-34,26);s.lineTo(-34,-26);
+ const h=new THREE.Path();h.absarc(0,0,1.4,0,Math.PI*2,true);s.holes.push(h);
+ const m=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.3,bevelEnabled:false}),std(0x0d0d0d,{roughness:1}));m.rotation.x=-Math.PI/2;m.position.y=y;S.add(m);return m;}
+const cards=[card(22.2),card(-22.5)];
+function lamp(x,y){const m=new THREE.Mesh(new THREE.SphereGeometry(1.3,16,10),new THREE.MeshBasicMaterial({color:0xfac775}));m.position.set(x,y,0);S.add(m);const p=new THREE.PointLight(0xfff0d0,.5,70);p.position.copy(m.position);S.add(p);}
+lamp(-23,7);lamp(23,7);lamp(-23,-7);lamp(23,-7);
+function sprite(t,x,y,z){const c=document.createElement('canvas'),g=c.getContext('2d');g.font='500 28px sans-serif';const wd=g.measureText(t).width+24;c.width=wd;c.height=44;g.font='500 28px sans-serif';g.fillStyle='rgba(44,44,42,.88)';g.fillRect(0,0,wd,44);g.fillStyle='#fff';g.textBaseline='middle';g.fillText(t,12,23);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(wd/14,3.1,1);s.position.set(x,y,z);s.renderOrder=9;S.add(s);return s;}
+sprite('Top phone (lens down)',0,27,0);sprite('Bottom phone (lens up)',0,-27.5,0);sprite('Glass + rice',24,1,12);sprite('Table',30,-29,20);sprite('Side light',-23,11,0);
+const cl=[sprite('Black card + lens hole',-20,22.5,14),sprite('Black card + lens hole',-20,-21,14)];
+const main=new THREE.PerspectiveCamera(40,1,.1,500);
+function mkCam(y){const c=new THREE.PerspectiveCamera(62,1,.1,200);c.position.set(0,y,0);c.up.set(0,0,-1);c.lookAt(0,0,0);c.layers.enable(1);return c;}
+const topCam=mkCam(22.4),botCam=mkCam(-22.6);
+let on=false;
+const M={off:'Black cards OFF: glass is see-through, so the TOP phone sees the table, its patterns and the bottom phone behind the rice. The BOTTOM phone sees the ceiling, the tube light and the top phone. The app mistakes all of that for grains.',
+ on:'Black cards ON: behind the rice each phone now sees only a black card (and a tiny lens hole). Both pictures look like rice on a black sheet, which is exactly what the app already handles well. Side lights shine in between the cards and the glass.'};
+function upd(){cards.forEach(c=>c.visible=on);cl.forEach(c=>c.visible=on);document.getElementById('tg').textContent='Black cards: '+(on?'ON (click to turn OFF)':'OFF (click to turn ON)');const m=document.getElementById('msg');m.className=on?'good':'bad';m.textContent=on?M.on:M.off;}
+window.toggle=()=>{on=!on;upd();};upd();
+let th=.8,ph=.28,dist=120,drag=null;window.spin=true;
+const el=r.domElement;el.style.cursor='grab';
+el.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];spin=false;});
+addEventListener('pointerup',()=>drag=null);
+el.addEventListener('pointermove',e=>{if(!drag)return;th-=(e.clientX-drag[0])*.008;ph=Math.max(-1.3,Math.min(1.3,ph+(e.clientY-drag[1])*.008));drag=[e.clientX,e.clientY];});
+el.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(60,Math.min(220,dist+e.deltaY*.08));},{passive:false});
+new ResizeObserver(()=>r.setSize(w.clientWidth,w.clientHeight)).observe(w);
+(function loop(){const W=w.clientWidth,H=w.clientHeight,mw=Math.round(W*.6),iw=W-mw-16,ih=Math.round((H-24)/2);
+ document.getElementById('l2').style.top=(ih+16+8)+'px';
+ if(spin)th+=.004;main.position.set(dist*Math.cos(ph)*Math.sin(th),dist*Math.sin(ph),dist*Math.cos(ph)*Math.cos(th));main.lookAt(0,-2,0);
+ main.aspect=mw/H;main.updateProjectionMatrix();r.setViewport(0,0,mw,H);r.setScissor(0,0,mw,H);r.setClearColor(0,0);r.render(S,main);
+ [[topCam,H-8-ih],[botCam,8]].forEach(([c,y])=>{c.aspect=iw/ih;c.updateProjectionMatrix();r.setViewport(mw+8,y,iw,ih);r.setScissor(mw+8,y,iw,ih);r.setClearColor(0x2c2c2a,1);r.clear();r.render(S,c);});
+ r.setClearColor(0,0);requestAnimationFrame(loop);})();
+</script>
+</body>
+</html>

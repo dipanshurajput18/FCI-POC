@@ -16,11 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from grain import calibration
 
 from .camera import CvSource, ImageSource, SimSource, list_usb_cameras
+from .dual import DualEngine, DualSimSource, PhonePairSource
 from .engine import Engine
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 app = FastAPI(title="FCI AI Grain Analyser", version="0.1.0")
 engine = Engine()
+dual = DualEngine(engine)
 app.mount("/static", StaticFiles(directory=WEB), name="static")
 
 
@@ -118,22 +120,113 @@ def calibration_sheet(marker_mm: float = 20.0, black: int = 1):
                     headers={"Content-Disposition": "inline; filename=calibration-sheet-A4.png"})
 
 
-@app.websocket("/ws")
-async def ws(sock: WebSocket):
+async def _stream(sock: WebSocket, eng) -> None:
     await sock.accept()
+    eng.clients += 1
     live_seen, res_seen, err_seen = -1, -1, None
     try:
         while True:
-            if engine.live_ver != live_seen and engine.live_jpeg is not None:
-                live_seen = engine.live_ver
-                await sock.send_bytes(engine.live_jpeg)
-                await sock.send_text(json.dumps({"type": "live", **engine.live}))
-            if engine.result_ver != res_seen:
-                res_seen = engine.result_ver
-                await sock.send_text(json.dumps({"type": "result", **engine.result()}))
-            if engine.error != err_seen:
-                err_seen = engine.error
-                await sock.send_text(json.dumps({"type": "error", "error": engine.error}))
+            if eng.live_ver != live_seen and eng.live_jpeg is not None:
+                live_seen = eng.live_ver
+                await sock.send_bytes(eng.live_jpeg)
+                await sock.send_text(json.dumps({"type": "live", **eng.live}))
+            if eng.result_ver != res_seen:
+                res_seen = eng.result_ver
+                await sock.send_text(json.dumps({"type": "result", **eng.result()}))
+            if eng.error != err_seen:
+                err_seen = eng.error
+                await sock.send_text(json.dumps({"type": "error", "error": eng.error}))
             await asyncio.sleep(0.04)
     except (WebSocketDisconnect, RuntimeError):
         return
+    finally:
+        eng.clients -= 1
+
+
+@app.websocket("/ws")
+async def ws(sock: WebSocket):
+    await _stream(sock, engine)
+
+
+# ---------------------------------------------------------------- dual-camera glass rig
+@app.get("/dual")
+def dual_page():
+    return FileResponse(WEB / "dual.html")
+
+
+@app.get("/rig3d")
+def rig3d():
+    return FileResponse(WEB.parent / "docs" / "rig_3d_dual_camera.html")
+
+
+@app.get("/api/dual/config")
+def dual_config():
+    return dual.config()
+
+
+@app.post("/api/dual/source")
+async def dual_source(req: Request):
+    d = await req.json()
+    try:
+        if d.get("kind", "sim") == "sim":
+            preset = d.get("preset") or "mixed"
+            dual.set_source(DualSimSource(preset, seed=int(d.get("seed", 7))), preset)
+        else:
+            top, bottom = str(d.get("top", "")).strip(), str(d.get("bottom", "")).strip()
+            if not top or not bottom:
+                raise HTTPException(400, "Enter both the top and the bottom phone address")
+            src = await asyncio.to_thread(PhonePairSource, top, bottom, float(d.get("marker_mm", 20)))
+            dual.set_source(src)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return dual.config()
+
+
+@app.post("/api/dual/settings")
+async def dual_settings(req: Request):
+    d = await req.json()
+    shared = {k: v for k, v in d.items() if k in ("lot_id", "officer", "grade", "sample_g", "classifier")}
+    if shared:
+        engine.update_settings(shared)
+    dual.update(d)
+    return dual.config()
+
+
+@app.post("/api/dual/capture")
+def dual_capture():
+    dual.capture()
+    return {"ok": True}
+
+
+@app.post("/api/dual/new-sample")
+def dual_new_sample():
+    dual.new_sample()
+    return {"ok": True}
+
+
+@app.post("/api/dual/shake")
+def dual_shake():
+    dual.source.shake()
+    return {"ok": True}
+
+
+@app.get("/api/dual/result")
+def dual_result():
+    return dual.result()
+
+
+@app.get("/api/dual/shot/{n}/{side}.jpg")
+def dual_shot(n: int, side: str, raw: int = 0):
+    if side not in ("top", "bottom"):
+        raise HTTPException(404)
+    key = ("raw_" if raw else "jpeg_") + side[0]
+    with dual.lock:
+        for s in dual.shots:
+            if s["n"] == n:
+                return Response(s[key], media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    raise HTTPException(404)
+
+
+@app.websocket("/ws/dual")
+async def ws_dual(sock: WebSocket):
+    await _stream(sock, dual)
